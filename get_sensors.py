@@ -1,5 +1,6 @@
-#girerebbe su udoo
-#leggi valori da udoo e chiama la funzione
+#Legge i valori su udoo e li butta sul db
+#gira su udoo, avvia prima cow-db sul server per l'accoglienza API
+#leggi valori da udoo e invia API
 
 # Sensors device i2c locations:
 # barometer: 1-0060, MPL3115A2
@@ -7,38 +8,88 @@
 # humidity & temperature: 1-0040, SI7006-A20
 
 
-import os, time
+import time, requests, json
 
 while(1):
+
+    # f = open("percorso")
+    # val = f.read()
+    # f.close()
+    # print(val.strip())
+    # r =  int(val.strip())
+
     # Calculate Humidity
-    hum_raw = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_raw")
-    hum_sca = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_scale")
-    hum_off = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_offset")
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_raw")
+    val = f.read()
+    f.close()
+    hum_raw = float(val.strip())
+
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_scale")
+    val = f.read()
+    f.close()
+    hum_sca = float(val.strip())
+
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_humidityrelative_offset")
+    val = f.read()
+    f.close()
+    hum_off = float(val.strip())
+
     hum = (hum_raw+hum_off)*hum_sca/1000
 
+
     # Calculate Temperature	(to test)
-    tem_raw = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio\:device2/in_temp_raw")
-    tem_sca = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio\:device2/in_temp_scale")
-    tem_off = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0040/iio\:device2/in_temp_offset")
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_temp_raw")
+    val = f.read()
+    f.close()
+    tem_raw = float(val.strip())
+
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_temp_scale")
+    val = f.read()
+    f.close()
+    tem_sca = float(val.strip())
+
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0040/iio:device2/in_temp_offset")
+    val = f.read()
+    f.close()
+    tem_off = float(val.strip())
+
     tem = (tem_raw+tem_off)*tem_sca/1000
 
+
     # Calculate Pressure (to test)
-    pre_raw = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0060/iio\:device0/in_pressure_raw")
-    pre_sca = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0060/iio\:device0/in_pressure_scale")
-    #Is there another value?
-    #?
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0060/iio:device0/in_pressure_raw")
+    val = f.read()
+    f.close()
+    pre_raw = float(val.strip())
+
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0060/iio:device0/in_pressure_scale")
+    val = f.read()
+    f.close()
+    pre_sca = float(val.strip())
+
+    pre = pre_raw*pre_sca/100
+
 
     # Calculate Light (to test)
-    lig_raw = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0029/iio\:device1/in_intensity_both_raw")
-    lig_off = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0029/iio\:device1/in_intensity_both_offset")
-    lig_sca = os.system("cat /sys/class/i2c-dev/i2c-1/device/1-0029/iio\:device1/in_intensity_both_scale")
-    lig = (lig_raw+lig_off)*lig_sca/1000
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0029/iio:device1/in_intensity_both_raw")
+    val = f.read()
+    f.close()
+    lig_raw = float(val.strip())
 
-    data = {"temperature":"tem", "light":"lig", "humidity":"hum", "pressure":"pre"}     #json? prova senza graffe
+    f = open("/sys/class/i2c-dev/i2c-1/device/1-0029/iio:device1/in_intensity_both_calibscale")
+    val = f.read()
+    f.close()
+    lig_sca = float(val.strip())
+
+    lig = lig_raw*lig_sca/1000
+
+
+    data = {"temperature":tem, "light":lig, "humidity":hum, "pressure":pre}
 
     try:        #rivedi codice API
+
         #('/api/v1/users/<user_id>/scanners/<scanner_id>', methods=['PUT'])
-        r = requests.post("http://origano.clik.polito.it:8888/api/v1/users/1/scanners/56", data=data)
+        r = requests.put("http://origano.clik.polito.it:8888/api/v1/users/1/scanners/56", data=json.dumps(data))
     except:
         print("Error on API request.")
 
